@@ -33,6 +33,7 @@ sleep(0.2)
 
 a = 0.1 # max acceleration m/s^2
 v = 0.3 # max velocity m/s
+curve_interp_step = 0.01 # steps in m for arc and bezier interpolation
 hover = 0.02 # hover over canvas while not painting
 feed = 0.003 # brush feed while painting in m/m
 offset = 0.008 # initial brush when starting to paint in m
@@ -201,13 +202,13 @@ def paint_path(path):
             if isinstance(seg, Line):
                 #print "    ", seg, "length:", seg.length()
                 poses.append((seg.start.real / 1e3, seg.start.imag / 1e3, offset + feed * acc_dist / 1e3, 0, 0, 0))
-                acc_dist += seg.length()
-            elif isinstance(seg, Arc):
-                print "TODO: Arc not yet supported"
-            elif isinstance(seg, QuadraticBezier):
-                print "TODO: QuadraticBezier not yet supported"
-            elif isinstance(seg, CubicBezier):
-                print "TODO: CubicBezier not yet supported"
+            elif isinstance(seg, Arc) or isinstance(seg, QuadraticBezier) or isinstance(seg, CubicBezier):
+                # one point every curve_interp_step, but at least two points
+                step = min(curve_interp_step * 1e3 / seg.length(), 0.5)
+                points = [seg.point(t) for t in np.arange(0, 1, step)]
+                # TODO acc_dist should be incremented from point to point:
+                poses.extend([(p.real / 1e3, p.imag / 1e3, offset + feed * acc_dist / 1e3, 0, 0, 0) for p in points])
+            acc_dist += seg.length()
         poses.append((sub.end.real / 1e3, sub.end.imag / 1e3, offset, 0, 0, 0))
         poses.append((sub.end.real / 1e3, sub.end.imag / 1e3, -hover, 0, 0, 0))
         r.movels(poses, acc=a, vel=v/4, threshold=0.001)
